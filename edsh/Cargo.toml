@@ -1,0 +1,12 @@
+[package]
+name = "edsh"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edsh-common.workspace = true
+iroh.workspace = true
+tokio.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
