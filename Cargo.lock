@@ -712,6 +712,7 @@ dependencies = [
  "iroh",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
