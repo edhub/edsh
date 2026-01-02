@@ -1,6 +1,6 @@
 [package]
 name = "edsh"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -12,3 +12,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1.0", features = ["derive"] }
 rand = "0.9"
+toml = "0.9.10"
+dirs = "6.0.0"

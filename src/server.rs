@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-pub async fn run_server(relay_url: Option<RelayUrl>) -> Result<()> {
+pub async fn run_server(relay_urls: Vec<RelayUrl>) -> Result<()> {
     // 1. Handle SecretKey - Load from disk or generate new one
     let key_path = PathBuf::from("edsh_server.key");
     let secret_key = if key_path.exists() {
@@ -30,9 +30,9 @@ pub async fn run_server(relay_url: Option<RelayUrl>) -> Result<()> {
         .secret_key(secret_key)
         .alpns(vec![EDSH_ALPN.to_vec()]);
 
-    if let Some(url) = relay_url {
-        tracing::info!("Using relay URL: {}", url);
-        let relay_map = RelayMap::from(RelayUrl::from(url));
+    if !relay_urls.is_empty() {
+        tracing::info!("Using relay URLs: {:?}", relay_urls);
+        let relay_map: RelayMap = relay_urls.into_iter().collect();
 
         let relay_mode = iroh::RelayMode::Custom(relay_map);
         builder = builder.relay_mode(relay_mode);

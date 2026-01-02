@@ -1,14 +1,14 @@
-use crate::protocol::{EDSH_ALPN, IS_ALPN};
+use crate::protocol::EDSH_ALPN;
 use anyhow::Result;
 use iroh::{Endpoint, EndpointId, RelayMap, RelayUrl};
 use tokio::io::{self, AsyncWriteExt};
 
-pub async fn run_client(endpoint_id: EndpointId, relay_url: Option<RelayUrl>) -> Result<()> {
-    let mut builder = Endpoint::builder().alpns(vec![IS_ALPN.to_vec(), EDSH_ALPN.to_vec()]);
+pub async fn run_client(endpoint_id: EndpointId, relay_urls: Vec<RelayUrl>) -> Result<()> {
+    let mut builder = Endpoint::builder();
 
-    if let Some(url) = relay_url {
-        tracing::info!("Using relay URL: {}", url);
-        let relay_map = RelayMap::from(RelayUrl::from(url));
+    if !relay_urls.is_empty() {
+        tracing::info!("Using relay URLs: {:?}", relay_urls);
+        let relay_map: RelayMap = relay_urls.into_iter().collect();
         let relay_mode = iroh::RelayMode::Custom(relay_map);
         builder = builder.relay_mode(relay_mode);
     }
@@ -18,7 +18,7 @@ pub async fn run_client(endpoint_id: EndpointId, relay_url: Option<RelayUrl>) ->
 
     // 2 & 3. 使用 ALPN = edsh 连接到目标 Endpoint id
     // iroh handles the ALPN negotiation and connection establishment.
-    let conn = endpoint.connect(endpoint_id, IS_ALPN).await?;
+    let conn = endpoint.connect(endpoint_id, EDSH_ALPN).await?;
 
     // Open a bidirectional stream for the SSH traffic
     let (mut send_stream, mut recv_stream) = conn.open_bi().await?;
