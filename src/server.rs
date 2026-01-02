@@ -1,29 +1,11 @@
+use crate::protocol::EDSH_ALPN;
 use anyhow::{Context, Result};
-use clap::Parser;
-use edsh_common::protocol::EDSH_ALPN;
-use iroh::{Endpoint, RelayConfig, RelayMap, RelayUrl, SecretKey};
+use iroh::{Endpoint, RelayMap, RelayUrl, SecretKey};
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tracing_subscriber::EnvFilter;
 
-#[derive(Parser)]
-#[command(author, version, about = "edsh-server - iroh-based SSH proxy server", long_about = None)]
-struct Cli {
-    /// Optional relay URL to use for discovery and NAT traversal.
-    #[arg(short = 'r')]
-    relay_url: Option<RelayUrl>,
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Initialize tracing for logging
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("error"));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
-
-    let cli = Cli::parse();
-
+pub async fn run_server(relay_url: Option<RelayUrl>) -> Result<()> {
     // 1. Handle SecretKey - Load from disk or generate new one
     let key_path = PathBuf::from("edsh_server.key");
     let secret_key = if key_path.exists() {
@@ -48,11 +30,10 @@ async fn main() -> Result<()> {
         .secret_key(secret_key)
         .alpns(vec![EDSH_ALPN.to_vec()]);
 
-    if let Some(url) = cli.relay_url {
+    if let Some(url) = relay_url {
         tracing::info!("Using relay URL: {}", url);
-        let relay_config = Arc::new(RelayConfig::from(url.clone()));
-        let relay_map = RelayMap::empty();
-        relay_map.insert(url, relay_config);
+        let relay_map = RelayMap::from(RelayUrl::from(url));
+
         let relay_mode = iroh::RelayMode::Custom(relay_map);
         builder = builder.relay_mode(relay_mode);
     }

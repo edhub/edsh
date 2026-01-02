@@ -708,33 +708,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "edsh-common",
- "iroh",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "edsh-common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "iroh",
- "serde",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "edsh-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "edsh-common",
  "iroh",
  "rand 0.9.2",
+ "serde",
  "tokio",
  "tracing",
  "tracing-subscriber",

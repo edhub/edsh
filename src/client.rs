@@ -1,40 +1,14 @@
-use std::sync::Arc;
-
+use crate::protocol::{EDSH_ALPN, IS_ALPN};
 use anyhow::Result;
-use clap::Parser;
-use edsh_common::protocol::{EDSH_ALPN, IS_ALPN};
-use iroh::{Endpoint, EndpointId, RelayConfig, RelayMap, RelayUrl};
+use iroh::{Endpoint, EndpointId, RelayMap, RelayUrl};
 use tokio::io::{self, AsyncWriteExt};
-use tracing_subscriber::EnvFilter;
 
-#[derive(Parser)]
-#[command(author, version, about = "edsh - iroh-based SSH proxy client", long_about = None)]
-struct Cli {
-    /// The Endpoint ID of the edsh-server to connect to.
-    #[arg()]
-    endpoint_id: EndpointId,
-
-    /// Optional relay URL to use for discovery and NAT traversal.
-    #[arg(short = 'r')]
-    relay_url: Option<RelayUrl>,
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Initialize tracing for logging
-    // We use stderr for logging because stdout is used for data
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("error"));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
-
-    let cli = Cli::parse();
-
+pub async fn run_client(endpoint_id: EndpointId, relay_url: Option<RelayUrl>) -> Result<()> {
     let mut builder = Endpoint::builder().alpns(vec![IS_ALPN.to_vec(), EDSH_ALPN.to_vec()]);
 
-    if let Some(url) = cli.relay_url {
-        // tracing::info!("Using relay URL: {}", url);
-        let relay_config = Arc::new(RelayConfig::from(url.clone()));
-        let relay_map = RelayMap::empty();
-        relay_map.insert(url, relay_config);
+    if let Some(url) = relay_url {
+        tracing::info!("Using relay URL: {}", url);
+        let relay_map = RelayMap::from(RelayUrl::from(url));
         let relay_mode = iroh::RelayMode::Custom(relay_map);
         builder = builder.relay_mode(relay_mode);
     }
@@ -44,7 +18,7 @@ async fn main() -> Result<()> {
 
     // 2 & 3. 使用 ALPN = edsh 连接到目标 Endpoint id
     // iroh handles the ALPN negotiation and connection establishment.
-    let conn = endpoint.connect(cli.endpoint_id, IS_ALPN).await?;
+    let conn = endpoint.connect(endpoint_id, IS_ALPN).await?;
 
     // Open a bidirectional stream for the SSH traffic
     let (mut send_stream, mut recv_stream) = conn.open_bi().await?;
