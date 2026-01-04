@@ -35,7 +35,7 @@ pub async fn run_server(relay_urls: Vec<RelayUrl>) -> Result<()> {
         let relay_map: RelayMap = relay_urls.into_iter().collect();
 
         let relay_mode = iroh::RelayMode::Custom(relay_map);
-        builder = builder.relay_mode(relay_mode);
+        builder = builder.clear_discovery().relay_mode(relay_mode);
     }
 
     let endpoint = builder.bind().await?;
