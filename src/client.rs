@@ -1,6 +1,9 @@
 use crate::protocol::EDSH_ALPN;
 use anyhow::Result;
-use iroh::{Endpoint, EndpointId, RelayMap, RelayUrl};
+use iroh::{
+    Endpoint, EndpointAddr, EndpointId, RelayMap, RelayUrl, TransportAddr,
+    discovery::static_provider::StaticProvider,
+};
 use tokio::io::{self, AsyncWriteExt};
 
 pub async fn run_client(endpoint_id: EndpointId, relay_urls: Vec<RelayUrl>) -> Result<()> {
@@ -8,9 +11,23 @@ pub async fn run_client(endpoint_id: EndpointId, relay_urls: Vec<RelayUrl>) -> R
 
     if !relay_urls.is_empty() {
         tracing::info!("Using relay URLs: {:?}", relay_urls);
+
+        let discovery = StaticProvider::new();
+        discovery.add_endpoint_info(EndpointAddr {
+            id: endpoint_id,
+            addrs: relay_urls
+                .iter()
+                .map(|url| TransportAddr::Relay(url.clone()))
+                .collect(),
+        });
+
         let relay_map: RelayMap = relay_urls.into_iter().collect();
         let relay_mode = iroh::RelayMode::Custom(relay_map);
-        builder = builder.relay_mode(relay_mode);
+
+        builder = builder
+            .clear_discovery()
+            .discovery(discovery)
+            .relay_mode(relay_mode);
     }
     // 1. 创建一个 Endpoint
     // In iroh 0.95, Endpoint::builder() is the standard way to start configuration.
