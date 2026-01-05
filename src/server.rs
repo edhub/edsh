@@ -1,7 +1,9 @@
 use crate::protocol::EDSH_ALPN;
 use anyhow::{Context, Result};
+use iroh::endpoint::TransportConfig;
 use iroh::{Endpoint, RelayMap, RelayUrl, SecretKey};
 use std::path::PathBuf;
+use std::time::Duration;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -25,8 +27,13 @@ pub async fn run_server(relay_urls: Vec<RelayUrl>) -> Result<()> {
     tracing::info!("Server started. Public Key (Endpoint ID): {}", public_key);
     println!("Server started. Public Key (Endpoint ID): {}", public_key);
 
+    let mut transport_config = TransportConfig::default();
+    transport_config.keep_alive_interval(Some(Duration::from_secs(10)));
+    transport_config.max_idle_timeout(Some(Duration::from_secs(60).try_into().unwrap()));
+
     // 2. Create Iroh Endpoint
     let mut builder = Endpoint::builder()
+        .transport_config(transport_config)
         .secret_key(secret_key)
         .alpns(vec![EDSH_ALPN.to_vec()]);
 
@@ -109,20 +116,35 @@ async fn forward_to_ssh(
 
     // Data exchange using tokio::io::copy
     let iroh_to_ssh = async {
-        io::copy(iroh_recv, &mut tcp_write).await?;
+        io::copy(iroh_recv, &mut tcp_write)
+            .await
+            .map_err(|e| {
+                eprintln!("iroh_to_ssh copy error: {:?}", e);
+                e
+            })
+            .context("iroh_to_ssh error")?;
         tcp_write.shutdown().await?;
         anyhow::Ok(())
     };
 
     let ssh_to_iroh = async {
-        io::copy(&mut tcp_read, iroh_send).await?;
+        io::copy(&mut tcp_read, iroh_send)
+            .await
+            .map_err(|e| {
+                eprintln!("ssh_to_iroh copy error: {:?}", e);
+                e
+            })
+            .context("ssh_to_iroh error")?;
         // finish() is sync in iroh 0.95 and returns Result<(), ClosedStream>
         let _ = iroh_send.finish();
         anyhow::Ok(())
     };
 
     // 使用 try_join! 等待两个方向的任务都正常结束
-    tokio::try_join!(iroh_to_ssh, ssh_to_iroh)?;
+    tokio::select! {
+        res = iroh_to_ssh => res?,
+        res = ssh_to_iroh => res?,
+    };
 
     Ok(())
 }

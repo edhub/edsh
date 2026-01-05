@@ -65,10 +65,10 @@ pub async fn run_client(endpoint_id: EndpointId, relay_urls: Vec<RelayUrl>) -> R
     let (res1, res2) = tokio::join!(client_to_server, server_to_client);
 
     if let Err(e) = res1 {
-        tracing::error!("stdin to iroh error: {:?}", e);
+        tracing::info!("stdin to iroh error: {:?}", e);
     }
     if let Err(e) = res2 {
-        tracing::error!("iroh to stdout error: {:?}", e);
+        tracing::info!("iroh to stdout error: {:?}", e);
     }
 
     Ok(())
