@@ -28,7 +28,7 @@ pub async fn run_server(relay_urls: Vec<RelayUrl>) -> Result<()> {
     println!("Server started. Public Key (Endpoint ID): {}", public_key);
 
     let mut transport_config = TransportConfig::default();
-    transport_config.keep_alive_interval(Some(Duration::from_secs(10)));
+    transport_config.keep_alive_interval(Some(Duration::from_secs(20)));
     transport_config.max_idle_timeout(Some(Duration::from_secs(60).try_into().unwrap()));
 
     // 2. Create Iroh Endpoint

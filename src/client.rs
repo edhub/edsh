@@ -1,13 +1,19 @@
+use std::time::Duration;
+
 use crate::protocol::EDSH_ALPN;
 use anyhow::Result;
 use iroh::{
     Endpoint, EndpointAddr, EndpointId, RelayMap, RelayUrl, TransportAddr,
-    discovery::static_provider::StaticProvider,
+    discovery::static_provider::StaticProvider, endpoint::TransportConfig,
 };
 use tokio::io::{self, AsyncWriteExt};
 
 pub async fn run_client(endpoint_id: EndpointId, relay_urls: Vec<RelayUrl>) -> Result<()> {
-    let mut builder = Endpoint::builder();
+    let mut transport_config = TransportConfig::default();
+    transport_config.keep_alive_interval(Some(Duration::from_secs(20)));
+    transport_config.max_idle_timeout(Some(Duration::from_secs(60).try_into().unwrap()));
+
+    let mut builder = Endpoint::builder().transport_config(transport_config);
 
     if !relay_urls.is_empty() {
         tracing::info!("Using relay URLs: {:?}", relay_urls);
@@ -62,13 +68,17 @@ pub async fn run_client(endpoint_id: EndpointId, relay_urls: Vec<RelayUrl>) -> R
     // 5. 连接断开后，结束
     // Wait for both directions to finish.
     // This ensures that all data from the server is received even if stdin is closed first.
-    let (res1, res2) = tokio::join!(client_to_server, server_to_client);
-
-    if let Err(e) = res1 {
-        tracing::info!("stdin to iroh error: {:?}", e);
-    }
-    if let Err(e) = res2 {
-        tracing::info!("iroh to stdout error: {:?}", e);
+    tokio::select! {
+        res = client_to_server => {
+            if let Err(e) = res {
+                tracing::info!("stdin to iroh error: {:?}", e);
+            }
+        }
+        res = server_to_client => {
+            if let Err(e) = res {
+                tracing::info!("iroh to stdout error: {:?}", e);
+            }
+        }
     }
 
     Ok(())
